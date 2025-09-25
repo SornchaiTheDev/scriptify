@@ -79,12 +79,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: ./artifacts
-          merge-multiple: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: ./artifacts/*.{tar.gz,zip}
+          files: ./artifacts/*/*.{tar.gz,zip}
           generate_release_notes: true
           draft: false
           prerelease: false
