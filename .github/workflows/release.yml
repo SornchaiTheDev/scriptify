@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -33,59 +33,38 @@ jobs:
             extension: .exe
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.25.1'
+          go-version: '1.25'
 
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          binary_name="scriptify"
-          if [ "${{ matrix.extension }}" != "" ]; then
-            binary_name="${binary_name}${{ matrix.extension }}"
-          fi
+          binary_name="scriptify${{ matrix.extension }}"
           go build -ldflags="-s -w" -o "${binary_name}"
 
           # Create archive
-          archive_name="scriptify-${{ matrix.platform }}"
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            zip "${archive_name}.zip" "${binary_name}"
-            echo "ARCHIVE=${archive_name}.zip" >> $GITHUB_ENV
+            archive_name="scriptify-${{ matrix.platform }}.zip"
+            zip "${archive_name}" "${binary_name}"
           else
-            tar -czf "${archive_name}.tar.gz" "${binary_name}"
-            echo "ARCHIVE=${archive_name}.tar.gz" >> $GITHUB_ENV
+            archive_name="scriptify-${{ matrix.platform }}.tar.gz"
+            tar -czf "${archive_name}" "${binary_name}"
           fi
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.platform }}
-          path: ${{ env.ARCHIVE }}
+          echo "ARCHIVE_NAME=${archive_name}" >> $GITHUB_ENV
 
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: ./artifacts
-
-      - name: Create Release
+      - name: Upload to release
         uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ./artifacts/*/*.{tar.gz,zip}
+          files: ${{ env.ARCHIVE_NAME }}
           generate_release_notes: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
